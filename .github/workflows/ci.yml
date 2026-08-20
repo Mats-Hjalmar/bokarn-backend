@@ -19,7 +19,7 @@ jobs:
         run: go vet ./...
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           version: v2.12.2
 
@@ -70,6 +70,11 @@ jobs:
         run: |
           psql -h localhost -U postgres -d bokarn -v ON_ERROR_STOP=1 -f seed/seed.sql
           psql -h localhost -U postgres -d bokarn -v ON_ERROR_STOP=1 -f seed/seed_pricing.sql
+
+      # A seeded database has seasons but no compiled nights, and the rate
+      # calendar is what the engine actually reads.
+      - name: Compile the rate calendar
+        run: go run ./cmd/job run compile-rates
 
       - name: Isolation suite
         working-directory: e2e

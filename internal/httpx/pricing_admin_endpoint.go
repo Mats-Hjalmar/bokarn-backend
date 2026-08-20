@@ -161,7 +161,8 @@ func (s *Server) updateSeason(c *router.Context, p seasonParams) {
 
 	// Recompiled immediately: a season edit that did not reach the rate
 	// calendar would look applied and sell at the old price.
-	days, err := s.pricing.Compile(ctx, planID, compileFrom, compileTo)
+	from, to := pricing.CompileWindow()
+	days, err := s.pricing.Compile(ctx, planID, from, to)
 	if err != nil {
 		logger.ErrorContext(
 			ctx,
@@ -184,7 +185,7 @@ func (s *Server) compileRates(c *router.Context) {
 	}
 	from, to := req.From, req.To
 	if from == "" || to == "" {
-		from, to = compileFrom, compileTo
+		from, to = pricing.CompileWindow()
 	}
 	if _, _, err := parseStay(from, to); err != nil {
 		writeProblem(c, router.BadRequest(err.Error()))
@@ -199,11 +200,3 @@ func (s *Server) compileRates(c *router.Context) {
 	}
 	c.JSON(http.StatusOK, CompileResponse{Days: days})
 }
-
-// The window a season edit recompiles. Wide enough to cover every season a
-// campsite has published, narrow enough that a recompile stays a fast
-// interactive operation.
-const (
-	compileFrom = "2026-01-01"
-	compileTo   = "2029-12-31"
-)

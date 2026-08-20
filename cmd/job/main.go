@@ -73,6 +73,7 @@ func run(args []string) error {
 // also being runnable by hand.
 func register(deps jobs.Deps) {
 	store := pricing.NewStore(deps.DB)
+	jobs.Register(pricing.CompileRates(store))
 	jobs.Register(pricing.PruneQuotes(store))
 }
 
