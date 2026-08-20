@@ -26,7 +26,10 @@ psql_su() {
 		-X -q -v ON_ERROR_STOP=1 -c "$1"
 }
 
-BIN=$(mktemp -t bokarn-e2e)
+# A full template rather than -t: BSD mktemp treats the argument as a prefix,
+# GNU requires the XXXXXX placeholder, and `-t bokarn-e2e` silently produces
+# nothing usable on Linux — which surfaced as the suite "failing" its baseline.
+BIN=$(mktemp "${TMPDIR:-/tmp}/bokarn-e2e.XXXXXX")
 trap 'rm -f "$BIN"' EXIT
 
 echo "Compiling the suite once..."
