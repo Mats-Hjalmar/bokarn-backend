@@ -1,0 +1,26 @@
+{
+  "$id": "https://bokarn.se/schemas/staff.identity.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Staff",
+  "type": "object",
+  "properties": {
+    "traits": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "title": "E-post",
+          "minLength": 3,
+          "maxLength": 320,
+          "ory.sh/kratos": {
+            "credentials": { "password": { "identifier": true } }
+          }
+        },
+        "name": { "type": "string", "title": "Namn", "maxLength": 120 }
+      },
+      "required": ["email"],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,167 @@
+# Compose derives the project name from the directory, which is "backend" here
+# and "backend" in every sibling project too — so without this, two repos share
+# one project: the same container names and, far worse, the same named volumes.
+# `docker compose down -v` in one would then delete the other's database.
+name: bokarn
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bokarn-backend
+    ports:
+      - "1437:1437"
+    env_file:
+      - .env
+    environment:
+      BOKARN_DB_HOST: postgres
+      BOKARN_DB_PORT: 5432
+      BOKARN_REDIS_HOST: redis
+      BOKARN_REDIS_PORT: 6379
+      BOKARN_KRATOS_PUBLIC_URL: http://kratos:4433
+      BOKARN_KRATOS_ADMIN_URL: http://kratos:4434
+      BOKARN_KRATOS_STAFF_PUBLIC_URL: http://kratos-staff:4433
+      BOKARN_KRATOS_STAFF_ADMIN_URL: http://kratos-staff:4434
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_EXPORTER_OTLP_INSECURE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      kratos:
+        condition: service_started
+      kratos-staff:
+        condition: service_started
+    restart: unless-stopped
+
+  migrate:
+    image: bokarn-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["migrate"]
+    environment:
+      BOKARN_DB_HOST: postgres
+      BOKARN_DB_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bokarn
+    ports:
+      - "1438:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bokarn"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "1439:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  kratos-migrate:
+    image: oryd/kratos:v1.3.1
+    environment:
+      DSN: postgres://postgres:postgres@postgres:5432/kratos_guest?sslmode=disable
+    volumes:
+      - ./ory:/etc/config/kratos:ro
+    command: ["migrate", "sql", "-e", "--yes"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  kratos:
+    image: oryd/kratos:v1.3.1
+    ports:
+      - "4633:4433"
+      - "4634:4434"
+    environment:
+      DSN: postgres://postgres:postgres@postgres:5432/kratos_guest?sslmode=disable
+    volumes:
+      - ./ory:/etc/config/kratos:ro
+    command: ["serve", "-c", "/etc/config/kratos/kratos.yml", "--dev"]
+    depends_on:
+      kratos-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  kratos-staff-migrate:
+    image: oryd/kratos:v1.3.1
+    environment:
+      DSN: postgres://postgres:postgres@postgres:5432/kratos_staff?sslmode=disable
+    volumes:
+      - ./ory-staff:/etc/config/kratos:ro
+    command: ["migrate", "sql", "-e", "--yes"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  kratos-staff:
+    image: oryd/kratos:v1.3.1
+    ports:
+      - "4733:4433"
+      - "4734:4434"
+    environment:
+      DSN: postgres://postgres:postgres@postgres:5432/kratos_staff?sslmode=disable
+    volumes:
+      - ./ory-staff:/etc/config/kratos:ro
+    command: ["serve", "-c", "/etc/config/kratos/kratos.yml", "--dev"]
+    depends_on:
+      kratos-staff-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # OTLP is taken directly by the LGTM image; 4417/4418 on the host because
+  # a sibling project on this machine already binds 4317/4318.
+  lgtm:
+    image: grafana/otel-lgtm:latest
+    ports:
+      - "34000:3000"
+      - "4417:4317"
+      - "4418:4318"
+    volumes:
+      - lgtm-data:/data
+      - ./dashboards/bokarn-backend.json:/otel-lgtm/dashboards-custom/bokarn-backend.json:ro
+      - ./dashboards/provider.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/bokarn.yaml:ro
+    restart: unless-stopped
+
+  # 1425/8425 rather than Mailpit's defaults: a sibling project on this machine
+  # already binds 1025/8025, and two stacks fighting over a port is a start-up
+  # failure at the worst moment rather than a warning.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1425:1025"
+      - "8425:8025"
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  lgtm-data:

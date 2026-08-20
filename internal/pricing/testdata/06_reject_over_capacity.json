@@ -1,0 +1,15 @@
+{
+  "name": "a party larger than the category can host",
+  "snapshot": {
+    "Plan": { "Code": "standard", "Currency": "SEK", "VATCode": "logi" },
+    "CategoryMaxOccupancy": 4,
+    "CategoryPetsAllowed": false,
+    "Days": {
+      "2027-07-01": { "Day": "2027-07-01", "BaseMinor": 49500, "IncludedAdults": 2, "MinStay": 1, "ArrivalMask": 127 },
+      "2027-07-02": { "Day": "2027-07-02", "BaseMinor": 49500, "IncludedAdults": 2, "MinStay": 1, "ArrivalMask": 127 }
+    },
+    "VATCodes": { "logi": { "Code": "logi", "RateBP": 1200, "Treatment": "standard" } }
+  },
+  "request": { "Arrival": "2027-07-01", "Departure": "2027-07-03", "Adults": 6 },
+  "reject": "over_capacity"
+}

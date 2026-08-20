@@ -1,0 +1,171 @@
+{
+  "name": "saturday-to-saturday cabin, thursday arrival",
+  "snapshot": {
+    "Plan": {
+      "Code": "standard",
+      "Currency": "SEK",
+      "VATCode": "logi"
+    },
+    "Days": {
+      "2027-07-01": {
+        "Day": "2027-07-01",
+        "BaseMinor": 49500,
+        "IncludedAdults": 2,
+        "IncludedChildren": 0,
+        "AdultExtraMinor": 15000,
+        "ChildExtraMinor": 0,
+        "PetMinor": 7500,
+        "VehicleMinor": 0,
+        "MinStay": 1,
+        "MaxStay": 0,
+        "ArrivalMask": 32,
+        "Closed": false,
+        "ClosedToArrival": false,
+        "ClosedToDeparture": false
+      },
+      "2027-07-02": {
+        "Day": "2027-07-02",
+        "BaseMinor": 49500,
+        "IncludedAdults": 2,
+        "IncludedChildren": 0,
+        "AdultExtraMinor": 15000,
+        "ChildExtraMinor": 0,
+        "PetMinor": 7500,
+        "VehicleMinor": 0,
+        "MinStay": 1,
+        "MaxStay": 0,
+        "ArrivalMask": 32,
+        "Closed": false,
+        "ClosedToArrival": false,
+        "ClosedToDeparture": false
+      },
+      "2027-07-03": {
+        "Day": "2027-07-03",
+        "BaseMinor": 49500,
+        "IncludedAdults": 2,
+        "IncludedChildren": 0,
+        "AdultExtraMinor": 15000,
+        "ChildExtraMinor": 0,
+        "PetMinor": 7500,
+        "VehicleMinor": 0,
+        "MinStay": 1,
+        "MaxStay": 0,
+        "ArrivalMask": 32,
+        "Closed": false,
+        "ClosedToArrival": false,
+        "ClosedToDeparture": false
+      },
+      "2027-07-04": {
+        "Day": "2027-07-04",
+        "BaseMinor": 49500,
+        "IncludedAdults": 2,
+        "IncludedChildren": 0,
+        "AdultExtraMinor": 15000,
+        "ChildExtraMinor": 0,
+        "PetMinor": 7500,
+        "VehicleMinor": 0,
+        "MinStay": 1,
+        "MaxStay": 0,
+        "ArrivalMask": 32,
+        "Closed": false,
+        "ClosedToArrival": false,
+        "ClosedToDeparture": false
+      },
+      "2027-07-05": {
+        "Day": "2027-07-05",
+        "BaseMinor": 49500,
+        "IncludedAdults": 2,
+        "IncludedChildren": 0,
+        "AdultExtraMinor": 15000,
+        "ChildExtraMinor": 0,
+        "PetMinor": 7500,
+        "VehicleMinor": 0,
+        "MinStay": 1,
+        "MaxStay": 0,
+        "ArrivalMask": 32,
+        "Closed": false,
+        "ClosedToArrival": false,
+        "ClosedToDeparture": false
+      },
+      "2027-07-06": {
+        "Day": "2027-07-06",
+        "BaseMinor": 49500,
+        "IncludedAdults": 2,
+        "IncludedChildren": 0,
+        "AdultExtraMinor": 15000,
+        "ChildExtraMinor": 0,
+        "PetMinor": 7500,
+        "VehicleMinor": 0,
+        "MinStay": 1,
+        "MaxStay": 0,
+        "ArrivalMask": 32,
+        "Closed": false,
+        "ClosedToArrival": false,
+        "ClosedToDeparture": false
+      },
+      "2027-07-07": {
+        "Day": "2027-07-07",
+        "BaseMinor": 49500,
+        "IncludedAdults": 2,
+        "IncludedChildren": 0,
+        "AdultExtraMinor": 15000,
+        "ChildExtraMinor": 0,
+        "PetMinor": 7500,
+        "VehicleMinor": 0,
+        "MinStay": 1,
+        "MaxStay": 0,
+        "ArrivalMask": 32,
+        "Closed": false,
+        "ClosedToArrival": false,
+        "ClosedToDeparture": false
+      },
+      "2027-07-08": {
+        "Day": "2027-07-08",
+        "BaseMinor": 49500,
+        "IncludedAdults": 2,
+        "IncludedChildren": 0,
+        "AdultExtraMinor": 15000,
+        "ChildExtraMinor": 0,
+        "PetMinor": 7500,
+        "VehicleMinor": 0,
+        "MinStay": 1,
+        "MaxStay": 0,
+        "ArrivalMask": 32,
+        "Closed": false,
+        "ClosedToArrival": false,
+        "ClosedToDeparture": false
+      },
+      "2027-07-09": {
+        "Day": "2027-07-09",
+        "BaseMinor": 49500,
+        "IncludedAdults": 2,
+        "IncludedChildren": 0,
+        "AdultExtraMinor": 15000,
+        "ChildExtraMinor": 0,
+        "PetMinor": 7500,
+        "VehicleMinor": 0,
+        "MinStay": 1,
+        "MaxStay": 0,
+        "ArrivalMask": 32,
+        "Closed": false,
+        "ClosedToArrival": false,
+        "ClosedToDeparture": false
+      }
+    },
+    "VATCodes": {
+      "logi": {
+        "Code": "logi",
+        "RateBP": 1200,
+        "Treatment": "standard"
+      }
+    },
+    "CategoryMaxOccupancy": 6,
+    "CategoryPetsAllowed": true
+  },
+  "request": {
+    "Arrival": "2027-07-01",
+    "Departure": "2027-07-08",
+    "Adults": 2
+  },
+  "reject": "arrival_day"
+}

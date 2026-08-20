@@ -1,0 +1,19 @@
+.DS_Store
+node_modules/
+.next/
+.expo/
+tmp/
+bin/
+
+# Every environment file except the committed template. A bare `.env` would not
+# match .env.production — the one most likely to hold a real DSN or a live key.
+.env*
+!.env.example
+
+# Key material never belongs in the tree, whatever it is called.
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.crt

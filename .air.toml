@@ -1,0 +1,14 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/main ./cmd/api"
+  bin = "./tmp/main"
+  include_ext = ["go", "sql", "yml", "yaml", "json"]
+  exclude_dir = ["tmp", "e2e", "dashboards", "docker"]
+  exclude_regex = ["_test\\.go"]
+  delay = 300
+  stop_on_error = true
+
+[misc]
+  clean_on_exit = true
