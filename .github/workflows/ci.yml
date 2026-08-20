@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.12.2
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test -count=1 -race ./...
+
+  isolation:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bokarn
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d bokarn"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    env:
+      BOKARN_DB_HOST: localhost
+      BOKARN_DB_PORT: 5432
+      PGPASSWORD: postgres
+      BOKARN_TEST_APP_DSN: host=localhost port=5432 user=bokarn_app password=bokarn_app dbname=bokarn sslmode=disable
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      # The three roles are created here rather than by the service container,
+      # which cannot mount an init script. Getting this wrong is not a broken
+      # build but a silent one: the suite would connect as a superuser, every
+      # policy would be inert, and every isolation test would pass.
+      - name: Create database roles
+        run: psql -h localhost -U postgres -d bokarn -v ON_ERROR_STOP=1 -f docker/initdb/00-roles.sql
+
+      - name: Migrate
+        run: go run ./cmd/migrate
+
+      - name: Seed
+        run: |
+          psql -h localhost -U postgres -d bokarn -v ON_ERROR_STOP=1 -f seed/seed.sql
+          psql -h localhost -U postgres -d bokarn -v ON_ERROR_STOP=1 -f seed/seed_pricing.sql
+
+      - name: Isolation suite
+        working-directory: e2e
+        run: GOWORK=off go test -count=1 -race ./...
+
+      # Proves the suite above is not vacuous: each protection is removed in
+      # turn and the suite must notice.
+      - name: Mutation check
+        run: ./scripts/rls-mutation.sh
