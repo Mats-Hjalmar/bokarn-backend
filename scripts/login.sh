@@ -11,7 +11,7 @@ set -euo pipefail
 email=${1:?usage: login.sh <email> [password]}
 # Local Docker stack only; never valid in any deployed environment.
 password=${2:-${BOKARN_DEV_PASSWORD:-local-dev-only-not-a-real-password}}
-KRATOS_STAFF_URL=${KRATOS_STAFF_URL:-http://localhost:4733}
+KRATOS_STAFF_URL=${KRATOS_STAFF_URL:-http://auth-staff.bokarn.localhost}
 
 flow=$(curl -sf "$KRATOS_STAFF_URL/self-service/login/api" | jq -r .id)
 

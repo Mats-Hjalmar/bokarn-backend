@@ -187,11 +187,11 @@ func Load() (Config, error) {
 		Kratos: KratosConfig{
 			PublicURL: e.str(
 				"BOKARN_KRATOS_PUBLIC_URL",
-				"http://localhost:4633",
+				"http://auth.bokarn.localhost",
 			),
 			AdminURL: e.str(
 				"BOKARN_KRATOS_ADMIN_URL",
-				"http://localhost:4634",
+				"http://auth-admin.bokarn.localhost",
 			),
 			SessionCacheTTL: e.duration(
 				"BOKARN_KRATOS_SESSION_CACHE_TTL",
@@ -201,11 +201,11 @@ func Load() (Config, error) {
 		Staff: KratosConfig{
 			PublicURL: e.str(
 				"BOKARN_KRATOS_STAFF_PUBLIC_URL",
-				"http://localhost:4733",
+				"http://auth-staff.bokarn.localhost",
 			),
 			AdminURL: e.str(
 				"BOKARN_KRATOS_STAFF_ADMIN_URL",
-				"http://localhost:4734",
+				"http://auth-staff-admin.bokarn.localhost",
 			),
 			SessionCacheTTL: e.duration(
 				"BOKARN_KRATOS_STAFF_SESSION_CACHE_TTL",

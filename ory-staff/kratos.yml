@@ -2,12 +2,12 @@ version: v1.3.1
 
 serve:
   public:
-    base_url: http://localhost:4733/
+    base_url: http://auth-staff.bokarn.localhost/
     cors:
       enabled: true
       allowed_origins:
-        - http://localhost:1437
-        - http://localhost:3400
+        - http://api.bokarn.localhost
+        - http://dashboard.bokarn.localhost
       allowed_methods: [GET, POST, PUT, PATCH, DELETE]
       allowed_headers: [Authorization, Content-Type, X-Session-Token]
       exposed_headers: [Content-Type, Set-Cookie]
@@ -16,9 +16,9 @@ serve:
     base_url: http://kratos-staff:4434/
 
 selfservice:
-  default_browser_return_url: http://localhost:3400/
+  default_browser_return_url: http://dashboard.bokarn.localhost/
   allowed_return_urls:
-    - http://localhost:3400/
+    - http://dashboard.bokarn.localhost/
   methods:
     password:
       enabled: true
@@ -37,27 +37,27 @@ selfservice:
       enabled: false
   flows:
     error:
-      ui_url: http://localhost:3400/error
+      ui_url: http://dashboard.bokarn.localhost/error
     registration:
       enabled: false
-      ui_url: http://localhost:3400/registrera
+      ui_url: http://dashboard.bokarn.localhost/registrera
     login:
-      ui_url: http://localhost:3400/logga-in
+      ui_url: http://dashboard.bokarn.localhost/logga-in
       lifespan: 10m
     settings:
-      ui_url: http://localhost:3400/installningar
+      ui_url: http://dashboard.bokarn.localhost/installningar
       privileged_session_max_age: 15m
     logout:
       after:
-        default_browser_return_url: http://localhost:3400/
+        default_browser_return_url: http://dashboard.bokarn.localhost/
     recovery:
       enabled: true
       use: code
       lifespan: 24h
-      ui_url: http://localhost:3400/aterstall
+      ui_url: http://dashboard.bokarn.localhost/aterstall
     verification:
       enabled: false
-      ui_url: http://localhost:3400/verifiera
+      ui_url: http://dashboard.bokarn.localhost/verifiera
 
 # Invite and recovery redemption run server-side against API-type flows,
 # because the frontends and Kratos sit on different sites and browsers no
@@ -78,7 +78,7 @@ secrets:
   cookie:
     - local-development-only-replace-in-every-deployment
   cipher:
-    - 00000000000000000000000000000000
+    - "00000000000000000000000000000000"
 
 ciphers:
   algorithm: xchacha20-poly1305

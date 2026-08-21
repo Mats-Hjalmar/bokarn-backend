@@ -86,6 +86,43 @@ func (h *Hosts) Lookup(ctx context.Context, slug string) (ID, error) {
 	return ID(*id), nil
 }
 
+// ReservedSlugs are first labels that name a service rather than an operator.
+//
+// Operators and services share one hostname namespace — a guest reaches
+// storsand.bokarn.se and the API answers on api.bokarn.se — which keeps guest
+// URLs looking the way they should in production. The cost is this list.
+// Without it the dashboard's own calls to api.<domain> resolve to an operator
+// named "api", and a staff token is then refused for naming a different
+// operator than its session: a failure that is confusing precisely because
+// nothing about it looks wrong.
+//
+// Every hostname in deploy/dev-proxy.caddy belongs here, and an operator slug
+// must never collide with one. SlugReserved is exported so operator creation
+// can refuse them at the source rather than leaving it to be discovered as a
+// routing oddity.
+var ReservedSlugs = map[string]struct{}{
+	"api":              {},
+	"auth":             {},
+	"auth-admin":       {},
+	"auth-staff":       {},
+	"auth-staff-admin": {},
+	"dashboard":        {},
+	"dev-proxy":        {},
+	"grafana":          {},
+	"localhost":        {},
+	"mail":             {},
+	"otlp":             {},
+	"web":              {},
+	"www":              {},
+}
+
+// SlugReserved reports whether a slug names a service and so cannot be an
+// operator's.
+func SlugReserved(slug string) bool {
+	_, reserved := ReservedSlugs[strings.ToLower(slug)]
+	return reserved
+}
+
 // SlugFromHost extracts the operator slug from a hostname. A host with no
 // operator label yields false, which the caller must treat as "no operator
 // selected" rather than defaulting to one.
@@ -102,7 +139,7 @@ func SlugFromHost(host string) (string, bool) {
 	// is folded before lookup — otherwise STORSAND.bokarn.se is a different
 	// operator from storsand.bokarn.se, and each gets its own cache entry.
 	slug := strings.ToLower(labels[0])
-	if slug == "" || slug == "www" || slug == "localhost" {
+	if slug == "" || SlugReserved(slug) {
 		return "", false
 	}
 	return slug, true

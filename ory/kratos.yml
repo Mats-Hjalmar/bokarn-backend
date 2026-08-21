@@ -2,12 +2,12 @@ version: v1.3.1
 
 serve:
   public:
-    base_url: http://localhost:4633/
+    base_url: http://auth.bokarn.localhost/
     cors:
       enabled: true
       allowed_origins:
-        - http://localhost:1437
-        - http://localhost:3300
+        - http://api.bokarn.localhost
+        - http://web.bokarn.localhost
       allowed_methods: [GET, POST, PUT, PATCH, DELETE]
       allowed_headers: [Authorization, Content-Type, X-Session-Token]
       exposed_headers: [Content-Type, Set-Cookie]
@@ -16,9 +16,9 @@ serve:
     base_url: http://kratos:4434/
 
 selfservice:
-  default_browser_return_url: http://localhost:3300/
+  default_browser_return_url: http://web.bokarn.localhost/
   allowed_return_urls:
-    - http://localhost:3300/
+    - http://web.bokarn.localhost/
   methods:
     password:
       enabled: true
@@ -37,27 +37,27 @@ selfservice:
       enabled: false
   flows:
     error:
-      ui_url: http://localhost:3300/error
+      ui_url: http://web.bokarn.localhost/error
     registration:
       enabled: true
-      ui_url: http://localhost:3300/registrera
+      ui_url: http://web.bokarn.localhost/registrera
     login:
-      ui_url: http://localhost:3300/logga-in
+      ui_url: http://web.bokarn.localhost/logga-in
       lifespan: 10m
     settings:
-      ui_url: http://localhost:3300/installningar
+      ui_url: http://web.bokarn.localhost/installningar
       privileged_session_max_age: 15m
     logout:
       after:
-        default_browser_return_url: http://localhost:3300/
+        default_browser_return_url: http://web.bokarn.localhost/
     recovery:
       enabled: true
       use: code
       lifespan: 24h
-      ui_url: http://localhost:3300/aterstall
+      ui_url: http://web.bokarn.localhost/aterstall
     verification:
       enabled: false
-      ui_url: http://localhost:3300/verifiera
+      ui_url: http://web.bokarn.localhost/verifiera
 
 # Invite and recovery redemption run server-side against API-type flows,
 # because the frontends and Kratos sit on different sites and browsers no
@@ -78,7 +78,7 @@ secrets:
   cookie:
     - local-development-only-replace-in-every-deployment
   cipher:
-    - 00000000000000000000000000000000
+    - "00000000000000000000000000000000"
 
 ciphers:
   algorithm: xchacha20-poly1305

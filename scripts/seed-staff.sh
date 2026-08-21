@@ -12,7 +12,7 @@
 # alone.
 set -euo pipefail
 
-KRATOS_STAFF_ADMIN_URL=${KRATOS_STAFF_ADMIN_URL:-http://localhost:4734}
+KRATOS_STAFF_ADMIN_URL=${KRATOS_STAFF_ADMIN_URL:-http://auth-staff-admin.bokarn.localhost}
 # Local Docker stack only; never valid in any deployed environment.
 PASSWORD=${BOKARN_DEV_PASSWORD:-local-dev-only-not-a-real-password}
 

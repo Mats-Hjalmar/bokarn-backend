@@ -10,8 +10,9 @@ services:
       context: .
       dockerfile: Dockerfile
     image: bokarn-backend
-    ports:
-      - "1437:1437"
+    networks:
+      dev:
+        aliases: [bokarn-api]
     env_file:
       - .env
     environment:
@@ -97,9 +98,10 @@ services:
 
   kratos:
     image: oryd/kratos:v1.3.1
-    ports:
-      - "4633:4433"
-      - "4634:4434"
+    networks:
+      default:
+      dev:
+        aliases: [bokarn-auth]
     environment:
       DSN: postgres://postgres:postgres@postgres:5432/kratos_guest?sslmode=disable
     volumes:
@@ -124,9 +126,10 @@ services:
 
   kratos-staff:
     image: oryd/kratos:v1.3.1
-    ports:
-      - "4733:4433"
-      - "4734:4434"
+    networks:
+      default:
+      dev:
+        aliases: [bokarn-auth-staff]
     environment:
       DSN: postgres://postgres:postgres@postgres:5432/kratos_staff?sslmode=disable
     volumes:
@@ -137,29 +140,33 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
-  # OTLP is taken directly by the LGTM image; 4417/4418 on the host because
-  # a sibling project on this machine already binds 4317/4318.
   lgtm:
     image: grafana/otel-lgtm:latest
-    ports:
-      - "34000:3000"
-      - "4417:4317"
-      - "4418:4318"
+    networks:
+      default:
+      dev:
+        aliases: [bokarn-grafana]
     volumes:
       - lgtm-data:/data
       - ./dashboards/bokarn-backend.json:/otel-lgtm/dashboards-custom/bokarn-backend.json:ro
       - ./dashboards/provider.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/bokarn.yaml:ro
     restart: unless-stopped
 
-  # 1425/8425 rather than Mailpit's defaults: a sibling project on this machine
-  # already binds 1025/8025, and two stacks fighting over a port is a start-up
-  # failure at the worst moment rather than a warning.
+  # SMTP stays published because the API sends mail from the host, not from a
+  # container; 1425 rather than 1025 because a sibling project binds 1025.
   mailpit:
     image: axllent/mailpit:latest
+    networks:
+      default:
+      dev:
+        aliases: [bokarn-mail]
     ports:
       - "1425:1025"
-      - "8425:8025"
     restart: unless-stopped
+
+networks:
+  dev:
+    external: true
 
 volumes:
   postgres-data:
