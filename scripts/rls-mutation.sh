@@ -7,9 +7,12 @@
 # the suite, and asserts it FAILS. A mutation the suite does not notice is a
 # hole in the tests, reported as a survivor.
 #
-# The suite is compiled once and Postgres is reached directly rather than
-# through `docker compose exec`; doing either per mutation turns a twenty-second
-# check into a ten-minute one, and a check nobody runs protects nothing.
+# Three things keep this fast enough to actually run. The suite is compiled
+# once; Postgres is reached directly rather than through `docker compose exec`;
+# and each mutation stops at the first test that notices it, because the
+# question is "does the suite fail?" and the first failure is the whole answer.
+# Doing any of them the obvious way turns a two-minute check into a
+# twenty-minute one, and a check nobody waits for is a check that gets skipped.
 #
 # Every mutation is restored, including on interrupt.
 set -uo pipefail
@@ -84,7 +87,9 @@ for table in $TABLES; do
 		CURRENT_KIND="$kind"
 		mutations=$((mutations + 1))
 
-		if "$BIN" -test.count=1 >/dev/null 2>&1; then
+		# failfast: one noticing test is proof enough, and every mutation here
+		# is expected to be noticed — so this is the common path, not the edge.
+		if "$BIN" -test.count=1 -test.failfast >/dev/null 2>&1; then
 			echo "  SURVIVED $table ($kind) — the suite does not test this"
 			survivors=$((survivors + 1))
 		else
