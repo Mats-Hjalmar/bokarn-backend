@@ -63,3 +63,29 @@
   minutes; compiling the test binary once and reaching Postgres directly brings
   it to about seventy seconds for 24 mutations. A check nobody runs protects
   nothing. Current state: 24 mutations, 0 survivors.
+
+- 2026-08-21: `scripts/rls-mutation.sh` could hang forever, and did. Two CI runs
+  sat in it for three and six hours — one was cancelled by hand — for a check
+  that takes ninety seconds locally. Nothing in the script had a timeout.
+
+  Every mutation is DDL, and `ALTER TABLE` takes ACCESS EXCLUSIVE, which waits
+  behind any open transaction with no deadline. One leftover connection is
+  enough, and on a slow runner that is a race the script loses. `psql` now
+  carries `lock_timeout` and `statement_timeout`, so a blocked mutation fails in
+  seconds and names itself.
+
+  The suite runs carry `-test.timeout` for the same reason, and the exit code is
+  now read rather than merely tested for truthiness: a Go test binary exits 0
+  when everything passed and 1 when a test failed, so anything else is a panic
+  or a timeout — neither a kill nor a survivor. Reporting a hang as a kill would
+  turn a stalled job into evidence of coverage.
+
+  The job also gained `timeout-minutes` as a backstop. A stalled job looks
+  exactly like a slow one, which is why nobody noticed for three hours.
+
+- 2026-08-21: Each mutation stops at the first test that notices it
+  (`-test.failfast`). The question is "does the suite fail?", and the first
+  failure is the whole answer; every mutation here is expected to be noticed, so
+  this is the common path rather than an edge case. 108 mutations went from 133s
+  to 79s. The baseline still runs the whole suite — that one has to genuinely
+  pass everything, or the mutations below it prove nothing.

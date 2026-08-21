@@ -7,7 +7,11 @@
 # the suite, and asserts it FAILS. A mutation the suite does not notice is a
 # hole in the tests, reported as a survivor.
 #
-# Three things keep this fast enough to actually run. The suite is compiled
+# Nothing here may hang. Every database statement carries a lock timeout and
+# every suite run carries a test timeout, because this script is the last thing
+# in CI and a stalled job looks exactly like a slow one.
+#
+# Three things keep it fast enough to actually run. The suite is compiled
 # once; Postgres is reached directly rather than through `docker compose exec`;
 # and each mutation stops at the first test that notices it, because the
 # question is "does the suite fail?" and the first failure is the whole answer.
@@ -24,9 +28,16 @@ PGPORT=${BOKARN_DB_PORT:-1438}
 SUPERUSER=${BOKARN_DB_SUPERUSER:-postgres}
 export PGPASSWORD=${BOKARN_DB_SUPERUSER_PASSWORD:-postgres}
 
+# Every mutation is DDL, and ALTER TABLE takes ACCESS EXCLUSIVE — which waits
+# forever behind any open transaction. A leftover connection is enough, and on a
+# slow runner that is a race this loses: two CI runs sat in this script for three
+# and six hours before anyone noticed, for a check that takes ninety seconds.
+# A blocked mutation now fails in five seconds and says so.
 psql_su() {
 	psql -h "$PGHOST" -p "$PGPORT" -U "$SUPERUSER" -d bokarn \
-		-X -q -v ON_ERROR_STOP=1 -c "$1"
+		-X -q -v ON_ERROR_STOP=1 \
+		-c "set lock_timeout = '5s'" -c "set statement_timeout = '30s'" \
+		-c "$1"
 }
 
 # A full template rather than -t: BSD mktemp treats the argument as a prefix,
@@ -60,8 +71,12 @@ restore() {
 }
 trap 'restore; rm -f "$BIN"; exit 130' INT TERM
 
+# Long enough for the pool test's 200 goroutines on a slow runner, short enough
+# that a deadlock is reported rather than waited on.
+SUITE_TIMEOUT=${BOKARN_MUTATION_SUITE_TIMEOUT:-4m}
+
 echo "Baseline: the suite must pass before anything is mutated."
-if ! "$BIN" -test.count=1 >/dev/null 2>&1; then
+if ! "$BIN" -test.count=1 -test.timeout="$SUITE_TIMEOUT" >/dev/null 2>&1; then
 	echo "  FAILED — fix the suite before mutation testing." >&2
 	exit 1
 fi
@@ -89,12 +104,28 @@ for table in $TABLES; do
 
 		# failfast: one noticing test is proof enough, and every mutation here
 		# is expected to be noticed — so this is the common path, not the edge.
-		if "$BIN" -test.count=1 -test.failfast >/dev/null 2>&1; then
+		"$BIN" -test.count=1 -test.failfast \
+			-test.timeout="$SUITE_TIMEOUT" >/dev/null 2>&1
+		status=$?
+
+		# A Go test binary exits 0 when everything passed and 1 when a test
+		# failed. Anything else is a panic or a timeout, which is neither a kill
+		# nor a survivor — the suite did not answer the question, and pretending
+		# it did would report a hang as proof of coverage.
+		case "$status" in
+		0)
 			echo "  SURVIVED $table ($kind) — the suite does not test this"
 			survivors=$((survivors + 1))
-		else
+			;;
+		1)
 			echo "  KILLED   $table ($kind)"
-		fi
+			;;
+		*)
+			echo "  ERROR    $table ($kind) — suite exited $status" >&2
+			restore
+			exit 1
+			;;
+		esac
 
 		restore
 	done
