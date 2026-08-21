@@ -48,14 +48,19 @@ func (s *Store) Calendar(
 		// && rather than a pair of comparisons: it is what the GiST index on
 		// (tenant_id, unit_id, stay) can actually answer.
 		allocRows, err := tx.Query(ctx,
-			`select id::text, unit_id::text, kind, state,
-			        arrival_date::text, departure_date::text,
-			        block_reason, unit_pinned
-			   from unit_allocation
-			  where unit_id is not null
-			    and state in ('held','confirmed','checked_in','checked_out')
-			    and stay && daterange($1::date, $2::date)
-			  order by arrival_date`, from, to)
+			`select a.id::text, a.unit_id::text, a.kind, a.state,
+			        a.arrival_date::text, a.departure_date::text,
+			        a.block_reason, a.unit_pinned,
+			        coalesce(b.id::text, ''), coalesce(b.reference, ''),
+			        coalesce(nullif(g.surname, '') || coalesce(', ' ||
+			                 nullif(g.given_names, ''), ''), '')
+			   from unit_allocation a
+			   left join booking b on b.id = a.booking_id
+			   left join guest_identity g on g.id = b.guest_id
+			  where a.unit_id is not null
+			    and a.state in ('held','confirmed','checked_in','checked_out')
+			    and a.stay && daterange($1::date, $2::date)
+			  order by a.arrival_date`, from, to)
 		if err != nil {
 			return fmt.Errorf("query allocations: %w", err)
 		}
@@ -66,6 +71,7 @@ func (s *Store) Calendar(
 			if err := allocRows.Scan(
 				&a.ID, &a.UnitID, &a.Kind, &a.State,
 				&a.Arrival, &a.Departure, &a.BlockReason, &a.UnitPinned,
+				&a.BookingID, &a.Reference, &a.GuestName,
 			); err != nil {
 				return fmt.Errorf("scan allocation: %w", err)
 			}

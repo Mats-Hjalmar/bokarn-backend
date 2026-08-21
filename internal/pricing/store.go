@@ -56,7 +56,7 @@ func (s *Store) LoadSnapshot(
 		}
 
 		err := tx.QueryRow(ctx, `
-			select p.id::text, p.code, p.currency, p.vat_code,
+			select p.id::text, p.code, p.name, p.currency, p.vat_code,
 			       coalesce(p.derive_op, ''), coalesce(p.derive_value_bp, 0),
 			       p.min_price_minor, p.max_price_minor,
 			       c.max_occupancy, c.pets_allowed
@@ -66,7 +66,7 @@ func (s *Store) LoadSnapshot(
 			   and ($2 = '' or c.site_id::text = $2)
 			 order by p.priority desc, p.code
 			 limit 1`, categoryCode, siteID,
-		).Scan(&planID, &snap.Plan.Code, &snap.Plan.Currency,
+		).Scan(&planID, &snap.Plan.Code, &snap.Plan.Name, &snap.Plan.Currency,
 			&snap.Plan.VATCode, &snap.Plan.DeriveOp, &snap.Plan.DeriveValueBP,
 			&snap.Plan.MinPriceMinor, &snap.Plan.MaxPriceMinor,
 			&snap.CategoryMaxOccupancy, &snap.CategoryPetsAllowed)
@@ -214,13 +214,14 @@ func (s *Store) LoadSnapshot(
 		if campaignCode != "" {
 			var c Campaign
 			err := tx.QueryRow(ctx, `
-				select code, kind, value from campaign
+				select code, name, kind, value from campaign
 				 where upper(code) = upper($1) and is_active
 				   and (book_from is null or book_from <= current_date)
 				   and (book_to is null or book_to >= current_date)
 				   and (stay_from is null or stay_from <= $2::date)
 				   and (stay_to is null or stay_to >= $2::date)`,
-				campaignCode, arrival).Scan(&c.Code, &c.Kind, &c.Value)
+				campaignCode, arrival).Scan(
+				&c.Code, &c.Name, &c.Kind, &c.Value)
 			switch {
 			case err == nil:
 				snap.Campaign = &c

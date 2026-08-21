@@ -68,6 +68,11 @@ const (
 // must be visible as one.
 var ErrNoRate = errors.New("pricing: no rate compiled for a night in the stay")
 
+// ErrQuoteNotFound is returned when a quote id does not resolve. A quote that
+// has expired still resolves: the confirm path needs to tell a guest that their
+// price moved, which it cannot do if an expired quote looks like a typo.
+var ErrQuoteNotFound = errors.New("pricing: quote not found")
+
 // ErrNoVATCode is returned when a line's VAT code does not resolve on the stay
 // date. VAT codes are date-effective, so this usually means a rate outlived its
 // code's validity window.
@@ -149,17 +154,22 @@ type Adjuster struct {
 	UsesFactor    bool
 }
 
-// Campaign is a discount code.
+// Campaign is a discount code. Name is what the operator calls it, and it is
+// what a guest sees on their breakdown: a code is an input, not a description.
 type Campaign struct {
 	Code  string
+	Name  string
 	Kind  string
 	Value int64
 }
 
-// RatePlan is the plan being quoted.
+// RatePlan is the plan being quoted. Name is the operator's wording and is
+// what reaches a price breakdown; Code is a stable key for channels and rules,
+// and showing it to a guest is showing them the plumbing.
 type RatePlan struct {
 	ID            string
 	Code          string
+	Name          string
 	Currency      string
 	VATCode       string
 	DeriveOp      string
@@ -237,4 +247,23 @@ type Quote struct {
 	Lines         []Line `json:"lines"`
 	Totals        Totals `json:"totals"`
 	Explain       []Step `json:"explain"`
+}
+
+// Label is what a guest should see. The name when the operator gave one, the
+// code when they did not — never an empty line, which is what a bare name would
+// produce on a plan created before the column existed.
+func (p RatePlan) Label() string {
+	if p.Name != "" {
+		return p.Name
+	}
+	return p.Code
+}
+
+// Label is the campaign's wording, falling back to its code for the same
+// reason.
+func (c Campaign) Label() string {
+	if c.Name != "" {
+		return c.Name
+	}
+	return c.Code
 }

@@ -100,6 +100,14 @@ type Allocation struct {
 	Departure   string  `json:"departure"    desc:"Departure day, exclusive"`
 	BlockReason *string `json:"block_reason"`
 	UnitPinned  bool    `json:"unit_pinned"`
+
+	// Who is on the pitch, for the rows that have somebody on them. Blocks and
+	// holds leave both empty, which is what lets the chart tell a guest from a
+	// broken hookup at a glance instead of colouring every occupied cell the
+	// same.
+	BookingID string `json:"booking_id,omitempty"`
+	Reference string `json:"reference,omitempty"`
+	GuestName string `json:"guest_name,omitempty"`
 }
 
 // CalendarRow is one unit and everything occupying it inside the requested

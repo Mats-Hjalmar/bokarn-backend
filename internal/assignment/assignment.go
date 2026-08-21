@@ -9,6 +9,8 @@
 // from a test is one nobody can argue with when a guest complains.
 package assignment
 
+import "sort"
+
 // Candidate is one unit that already passed the hard filters — right category,
 // in season, no overlapping allocation. What remains is preference.
 type Candidate struct {
@@ -104,4 +106,17 @@ func clamp(nights int) int {
 		return MaxLookahead
 	}
 	return nights
+}
+
+// Order sorts candidates best first, so the caller can walk them as a
+// first-fit list. The order is total: Cost never ties two distinct units
+// without SortOrder separating them, and UnitID breaks anything left.
+func Order(candidates []Candidate, r Request) {
+	sort.SliceStable(candidates, func(i, j int) bool {
+		ci, cj := Cost(candidates[i], r), Cost(candidates[j], r)
+		if ci != cj {
+			return ci < cj
+		}
+		return candidates[i].UnitID < candidates[j].UnitID
+	})
 }

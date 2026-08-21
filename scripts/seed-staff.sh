@@ -56,17 +56,21 @@ upsert_identity() {
 	printf '%s' "$id"
 }
 
-# grant_admin <tenant-uuid> <identity-id>
+# grant_admin <tenant-uuid> <identity-id> <email> <name>
 #
 # The API provisions the users row itself on first login, but the role grant
 # cannot be inferred from a session — so both are written here, which also
 # means a fresh database is usable without anyone logging in first.
 grant_admin() {
-	local tenant=$1 identity=$2
+	local tenant=$1 identity=$2 email=$3 name=$4
 	psql_app <<SQL
-insert into users (tenant_id, external_user_id)
-values ('$tenant', 'staff:$identity')
-on conflict (external_user_id) do nothing;
+-- Email and name are written here as well as by the API's own provisioning, so
+-- a freshly seeded database has a named staff list before anybody has signed
+-- in. The API keeps them current after that.
+insert into users (tenant_id, external_user_id, email, name)
+values ('$tenant', 'staff:$identity', '$email', '$name')
+on conflict (external_user_id) do update
+   set email = excluded.email, name = excluded.name;
 
 insert into user_roles (tenant_id, user_id, role_id)
 select '$tenant', u.id, r.id
@@ -80,13 +84,16 @@ SQL
 
 echo "Seeding staff identities..."
 
-id=$(upsert_identity "admin@storsand.example" "Storsand Admin" \
-	"$(jq -n --arg t "$STORSAND" '{tenant_id: $t}')")
-grant_admin "$STORSAND" "$id"
+# seed_admin <tenant-uuid> <email> <name>
+seed_admin() {
+	local tenant=$1 email=$2 name=$3 id
+	id=$(upsert_identity "$email" "$name" \
+		"$(jq -n --arg t "$tenant" '{tenant_id: $t}')")
+	grant_admin "$tenant" "$id" "$email" "$name"
+}
 
-id=$(upsert_identity "admin@hamnviken.example" "Hamnviken Admin" \
-	"$(jq -n --arg t "$HAMNVIKEN" '{tenant_id: $t}')")
-grant_admin "$HAMNVIKEN" "$id"
+seed_admin "$STORSAND" "admin@storsand.example" "Storsand Admin"
+seed_admin "$HAMNVIKEN" "admin@hamnviken.example" "Hamnviken Admin"
 
 # The platform operator carries no tenant_id at all: it is not a member of any
 # campsite, and the staff verifier refuses a session without one.

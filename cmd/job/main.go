@@ -10,21 +10,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"strings"
 
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/config"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/db"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/jobs"
+	"github.com/Mats-Hjalmar/bokarn-backend/internal/logging"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/platform"
-	"github.com/Mats-Hjalmar/bokarn-backend/internal/pricing"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/tenant"
+	"github.com/Mats-Hjalmar/bokarn-backend/internal/worker"
 
 	_ "github.com/Mats-Hjalmar/bokarn-backend/internal/otel"
 )
 
-var logger = slog.With("subsystem", "job")
+var logger = logging.New("job")
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -40,16 +40,16 @@ func run(args []string) error {
 
 	ctx := context.Background()
 
-	deps, closeDeps, err := open(ctx)
+	cfg, deps, closeDeps, err := open(ctx)
 	if err != nil {
 		return err
 	}
 	defer closeDeps()
 
-	// Registration happens here rather than in package init functions so that
-	// both subcommands see the same registry, and so a job's dependencies are
-	// visible at the point it is registered.
-	register(deps)
+	// internal/worker owns registration, so this binary and the API build the
+	// same registry from the same code. A job that ticks in the API but is not
+	// reachable here would be a job nobody can test.
+	worker.Register(deps, cfg)
 
 	switch args[0] {
 	case "list":
@@ -68,36 +68,30 @@ func run(args []string) error {
 	}
 }
 
-// register wires every job. Adding one here is the only step: cmd/api reads the
-// same registry for its tickers, so a job cannot exist on a schedule without
-// also being runnable by hand.
-func register(deps jobs.Deps) {
-	store := pricing.NewStore(deps.DB)
-	jobs.Register(pricing.CompileRates(store))
-	jobs.Register(pricing.PruneQuotes(store))
-}
-
-func open(ctx context.Context) (jobs.Deps, func(), error) {
+func open(ctx context.Context) (config.Config, jobs.Deps, func(), error) {
 	cfg, err := config.Load()
 	if err != nil {
-		return jobs.Deps{}, nil, fmt.Errorf("load config: %w", err)
+		return config.Config{}, jobs.Deps{}, nil,
+			fmt.Errorf("load config: %w", err)
 	}
 
 	pool, err := db.New(ctx, cfg.Database.AppDSN())
 	if err != nil {
-		return jobs.Deps{}, nil, fmt.Errorf("connect db: %w", err)
+		return config.Config{}, jobs.Deps{}, nil,
+			fmt.Errorf("connect db: %w", err)
 	}
 
 	tenantDB, err := tenant.New(ctx, pool)
 	if err != nil {
 		pool.Close()
-		return jobs.Deps{}, nil, err
+		return config.Config{}, jobs.Deps{}, nil, err
 	}
 
 	platformStore, err := platform.New(ctx, cfg.Database.PlatformDSN())
 	if err != nil {
 		pool.Close()
-		return jobs.Deps{}, nil, fmt.Errorf("connect platform db: %w", err)
+		return config.Config{}, jobs.Deps{}, nil,
+			fmt.Errorf("connect platform db: %w", err)
 	}
 
 	deps := jobs.Deps{
@@ -105,7 +99,7 @@ func open(ctx context.Context) (jobs.Deps, func(), error) {
 		DB:        tenantDB,
 		TenantIDs: tenantLister(platformStore),
 	}
-	return deps, func() {
+	return cfg, deps, func() {
 		platformStore.Close()
 		pool.Close()
 	}, nil

@@ -86,7 +86,7 @@ func Price(s Snapshot, r Request) (Quote, error) {
 			Seq:            i + 1,
 			Kind:           KindAccommodation,
 			StayDate:       d.Day,
-			Description:    s.Plan.Code,
+			Description:    s.Plan.Label(),
 			Qty:            1,
 			UnitGrossMinor: night.Minor,
 			GrossMinor:     night.Minor,
@@ -114,7 +114,7 @@ func Price(s Snapshot, r Request) (Quote, error) {
 			q.Lines = append(q.Lines, Line{
 				Seq:         len(q.Lines) + 1,
 				Kind:        KindDerived,
-				Description: s.Plan.Code,
+				Description: s.Plan.Label(),
 				Qty:         1,
 				GrossMinor:  delta.Minor,
 				VATCode:     s.Plan.VATCode,
@@ -156,7 +156,7 @@ func Price(s Snapshot, r Request) (Quote, error) {
 			q.Lines = append(q.Lines, Line{
 				Seq:         len(q.Lines) + 1,
 				Kind:        KindCampaign,
-				Description: s.Campaign.Code,
+				Description: s.Campaign.Label(),
 				Qty:         1,
 				GrossMinor:  d.Minor,
 				VATCode:     s.Plan.VATCode,

@@ -39,15 +39,54 @@ func (s *Store) ByExternalID(ctx context.Context, ext string) (User, error) {
 	return u, nil
 }
 
+// refresh copies the identity's current name and address onto an existing row.
+//
+// nullif and coalesce together mean an identity that supplies no name cannot
+// blank one that is already there: absent is not the same as cleared, and only
+// the first is what a missing trait tells us.
+func (s *Store) refresh(
+	ctx context.Context,
+	u User,
+	email, name string,
+) (User, error) {
+	err := s.db.Tx(ctx, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `
+			update users
+			   set email = coalesce(nullif($2, ''), email),
+			       name  = coalesce(nullif($3, ''), name)
+			 where id = $1
+			returning id::text, external_user_id,
+			          coalesce(email, ''), coalesce(name, '')`,
+			u.ID, email, name,
+		).Scan(&u.ID, &u.ExternalUserID, &u.Email, &u.Name)
+	})
+	if err != nil {
+		return User{}, fmt.Errorf("refresh user: %w", err)
+	}
+	return u, nil
+}
+
 // Provision returns the user for a Kratos identity, inserting the row on first
-// sight. It is safe to call concurrently: a lost insert race re-reads.
+// sight and keeping its name and address in step after that. It is safe to call
+// concurrently: a lost insert race re-reads.
+//
+// The refresh is not decoration. A user row can exist before its owner has ever
+// signed in — the dev seed creates one, and an invite flow would too — and the
+// first version of this only wrote email and name on insert. The result was a
+// whole operator's staff with no names, which shows up as an audit trail
+// recording "staff" for every action instead of who took it. The identity
+// provider is the source of truth for a person's name; this keeps a copy, so it
+// has to keep it current.
 func (s *Store) Provision(
 	ctx context.Context,
 	ext, email, name string,
 ) (User, error) {
 	u, err := s.ByExternalID(ctx, ext)
 	if err == nil {
-		return u, nil
+		if u.Email == email && u.Name == name {
+			return u, nil
+		}
+		return s.refresh(ctx, u, email, name)
 	}
 	if !errors.Is(err, ErrUserNotFound) {
 		return User{}, err

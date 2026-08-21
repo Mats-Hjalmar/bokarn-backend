@@ -8,6 +8,7 @@ import (
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/availability"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/tenant"
 	"github.com/joakimcarlsson/minmux/openapi"
+	"github.com/joakimcarlsson/minmux/outputcache"
 	"github.com/joakimcarlsson/minmux/router"
 )
 
@@ -15,6 +16,13 @@ import (
 // is really zero turns into a failed booking at the payment step, which is a
 // worse experience than a slightly slower search.
 const availabilityCacheTTL = 30 * time.Second
+
+// availabilityCacheTag is what an occupancy write invalidates. The TTL above is
+// only a backstop for changes this process did not serve — a hold expiring on
+// the sweeper, say — because a count that is stale in the other direction
+// offers a pitch somebody has just taken, and the guest finds out at the last
+// step.
+const availabilityCacheTag = "availability"
 
 type availabilityParams struct {
 	Arrival        string `query:"arrival"         desc:"First night, YYYY-MM-DD"`
@@ -52,7 +60,7 @@ func (s *Server) registerAvailability() {
 		tenant.Cached(availabilityCacheTTL, []string{
 			"arrival", "departure", "adults", "children", "pets",
 			"electricity_amp", "accessible",
-		}),
+		}, outputcache.Tags(availabilityCacheTag)),
 		openapi.ReturnsBody[AvailabilityResponse](http.StatusOK, "Offers"),
 		openapi.ReturnsBody[router.ProblemDetails](
 			http.StatusBadRequest,

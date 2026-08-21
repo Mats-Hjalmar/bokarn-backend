@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,12 +15,15 @@ import (
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/config"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/db"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/httpx"
+	"github.com/Mats-Hjalmar/bokarn-backend/internal/jobs"
+	"github.com/Mats-Hjalmar/bokarn-backend/internal/logging"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/otel"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/platform"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/tenant"
+	"github.com/Mats-Hjalmar/bokarn-backend/internal/worker"
 )
 
-var logger = slog.With("subsystem", "api")
+var logger = logging.New("api")
 
 func main() {
 	if err := run(); err != nil {
@@ -89,6 +91,26 @@ func run() error {
 		return fmt.Errorf("build server: %w", err)
 	}
 
+	// Background work runs in this process, on tickers, alongside the server.
+	// The registry is built by internal/worker so cmd/job builds the same one:
+	// every job the API ticks is reachable by name from the command line, which
+	// is what makes each one testable from a Makefile target.
+	workerCtx, stopWorkers := context.WithCancel(ctx)
+	defer stopWorkers()
+
+	deps := jobs.Deps{
+		Pool:      pool,
+		DB:        tenantDB,
+		TenantIDs: tenantLister(platformStore),
+	}
+	worker.Register(deps, cfg)
+
+	workersDone := make(chan struct{})
+	go func() {
+		defer close(workersDone)
+		worker.Run(workerCtx, deps)
+	}()
+
 	serverErr := make(chan error, 1)
 	go func() {
 		logger.InfoContext(ctx, "server listening", "addr", srv.Addr())
@@ -118,5 +140,33 @@ func run() error {
 		return fmt.Errorf("graceful shutdown: %w", err)
 	}
 
+	// Jobs are stopped after the server, so a request that enqueued an outbox
+	// message during shutdown still has a dispatcher to deliver it.
+	stopWorkers()
+	select {
+	case <-workersDone:
+	case <-shutdownCtx.Done():
+		logger.Warn("background jobs did not stop in time")
+	}
+
 	return nil
+}
+
+// tenantLister is how background work learns which operators exist. It reads
+// through the platform role, which is the only role that can see across
+// operators, and every such read is audited by that store.
+func tenantLister(
+	p *platform.Store,
+) func(context.Context) ([]tenant.ID, error) {
+	return func(ctx context.Context) ([]tenant.ID, error) {
+		raw, err := p.TenantIDs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		ids := make([]tenant.ID, 0, len(raw))
+		for _, id := range raw {
+			ids = append(ids, tenant.ID(id))
+		}
+		return ids, nil
+	}
 }

@@ -6,17 +6,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/account"
+	"github.com/Mats-Hjalmar/bokarn-backend/internal/assignment"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/authentication"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/authorization"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/availability"
+	"github.com/Mats-Hjalmar/bokarn-backend/internal/booking"
 	appcache "github.com/Mats-Hjalmar/bokarn-backend/internal/cache"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/config"
+	"github.com/Mats-Hjalmar/bokarn-backend/internal/guest"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/inventory"
+	"github.com/Mats-Hjalmar/bokarn-backend/internal/logging"
+	"github.com/Mats-Hjalmar/bokarn-backend/internal/notify"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/otel"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/platform"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/pricing"
@@ -29,7 +33,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var logger = slog.With("subsystem", "server")
+var logger = logging.New("server")
 
 // hostCacheTTL bounds how long a hostname keeps resolving to the operator it
 // resolved to a moment ago. Slugs change rarely; a minute keeps a renamed or
@@ -51,6 +55,7 @@ type Server struct {
 	inventory *inventory.Store
 	avail     *availability.Store
 	pricing   *pricing.Store
+	bookings  *booking.Store
 	platform  *platform.Store
 }
 
@@ -86,6 +91,13 @@ func NewServer(
 		pricing:   pricing.NewStore(db),
 		platform:  platformStore,
 	}
+	s.bookings = booking.NewStore(
+		db,
+		assignment.NewStore(db),
+		guest.NewStore(db),
+		s.pricing,
+		notify.NewStore(db),
+	)
 
 	staffResolver := authentication.New(
 		cfg.Staff.PublicURL,
@@ -140,6 +152,8 @@ func NewServer(
 	s.registerInventoryAdmin()
 	s.registerQuotes()
 	s.registerPricingAdmin()
+	s.registerBookings()
+	s.registerBookingAdmin()
 	s.registerPlatform()
 	registerSpec(r, gen)
 	registerDocs(r)

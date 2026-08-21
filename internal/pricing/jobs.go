@@ -58,9 +58,11 @@ func PruneQuotes(store *Store) jobs.Job {
 		Run: func(ctx context.Context, d jobs.Deps) error {
 			return jobs.ForEachTenant(ctx, d, func(ctx context.Context) error {
 				return store.db.Tx(ctx, func(tx pgx.Tx) error {
-					_, err := tx.Exec(ctx,
+					_, err := tx.Exec(
+						ctx,
 						`delete from quote where expires_at < now() - $1::interval`,
-						quoteRetention.String())
+						quoteRetention.String(),
+					)
 					if err != nil {
 						return fmt.Errorf("prune quotes: %w", err)
 					}

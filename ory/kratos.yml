@@ -5,9 +5,11 @@ serve:
     base_url: http://auth.bokarn.localhost/
     cors:
       enabled: true
+      # Every operator is its own hostname, so the origin cannot be listed one
+      # by one: a new campsite must not need a Kratos restart.
       allowed_origins:
         - http://api.bokarn.localhost
-        - http://web.bokarn.localhost
+        - http://*.bokarn.localhost
       allowed_methods: [GET, POST, PUT, PATCH, DELETE]
       allowed_headers: [Authorization, Content-Type, X-Session-Token]
       exposed_headers: [Content-Type, Set-Cookie]
@@ -18,7 +20,7 @@ serve:
 selfservice:
   default_browser_return_url: http://web.bokarn.localhost/
   allowed_return_urls:
-    - http://web.bokarn.localhost/
+    - http://*.bokarn.localhost/
   methods:
     password:
       enabled: true
@@ -38,9 +40,25 @@ selfservice:
   flows:
     error:
       ui_url: http://web.bokarn.localhost/error
+    # The ui_url values below are inert. Guest self-service runs through
+    # API-type flows from the server, so Kratos never redirects a browser to
+    # any of them — but it insists on having them configured.
+    #
+    # They deliberately point at web.bokarn.localhost, which is a reserved
+    # service label and therefore resolves to no operator. If a browser flow is
+    # ever started by accident it lands on "we do not recognise that address"
+    # rather than on whichever campsite happened to be first.
     registration:
       enabled: true
       ui_url: http://web.bokarn.localhost/registrera
+      after:
+        password:
+          hooks:
+            # A guest who has just chosen a password is signed in by it.
+            # Without this hook Kratos creates the identity and returns no
+            # session, so "save my details" would leave them with an account
+            # they are not logged into and no way to tell.
+            - hook: session
     login:
       ui_url: http://web.bokarn.localhost/logga-in
       lifespan: 10m

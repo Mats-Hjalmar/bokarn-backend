@@ -70,6 +70,7 @@ jobs:
         run: |
           psql -h localhost -U postgres -d bokarn -v ON_ERROR_STOP=1 -f seed/seed.sql
           psql -h localhost -U postgres -d bokarn -v ON_ERROR_STOP=1 -f seed/seed_pricing.sql
+          psql -h localhost -U postgres -d bokarn -v ON_ERROR_STOP=1 -f seed/seed_messages.sql
 
       # A seeded database has seasons but no compiled nights, and the rate
       # calendar is what the engine actually reads.

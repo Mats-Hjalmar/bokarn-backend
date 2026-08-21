@@ -35,6 +35,8 @@ seed:
 		psql -U postgres -d bokarn -v ON_ERROR_STOP=1 < seed/seed.sql
 	docker compose exec -T postgres \
 		psql -U postgres -d bokarn -v ON_ERROR_STOP=1 < seed/seed_pricing.sql
+	docker compose exec -T postgres \
+		psql -U postgres -d bokarn -v ON_ERROR_STOP=1 < seed/seed_messages.sql
 
 seed-staff:
 	./scripts/seed-staff.sh

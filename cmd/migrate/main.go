@@ -8,17 +8,17 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"os"
 
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/config"
 	"github.com/Mats-Hjalmar/bokarn-backend/internal/db"
+	"github.com/Mats-Hjalmar/bokarn-backend/internal/logging"
 	"github.com/Mats-Hjalmar/bokarn-backend/migrations"
 
 	_ "github.com/Mats-Hjalmar/bokarn-backend/internal/otel"
 )
 
-var logger = slog.With("subsystem", "migrate")
+var logger = logging.New("migrate")
 
 func main() {
 	if err := run(); err != nil {

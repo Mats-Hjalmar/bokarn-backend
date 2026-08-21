@@ -2,7 +2,6 @@ package httpx
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -15,7 +14,7 @@ import (
 // a count, because Nordic sites price 0-3, 4-12 and 13-15 apart and a count
 // cannot express that.
 type QuoteRequest struct {
-	SiteID       string       `json:"site_id" desc:"Needed if code spans sites"`
+	SiteID       string       `json:"site_id"       desc:"If code spans sites"`
 	CategoryCode string       `json:"category_code"`
 	Arrival      string       `json:"arrival"       desc:"First night, YYYY-MM-DD"`
 	Departure    string       `json:"departure"     desc:"Exclusive, YYYY-MM-DD"`
@@ -63,18 +62,6 @@ func (s *Server) registerQuotes() {
 	)
 }
 
-// Bounds on a booking request. These are not arbitrary: a party larger than
-// maxParty cannot fit any category bokarn models, and unbounded counts multiply
-// into an int64 overflow that turns a price negative — found by testing,
-// not by reading the code.
-const (
-	maxParty         = 60
-	maxPets          = 20
-	maxVehicles      = 20
-	maxStayNights    = 365
-	oldestGuestYears = 120
-)
-
 func (s *Server) createQuote(c *router.Context) {
 	var req QuoteRequest
 	if err := decodeJSON(c, &req); err != nil {
@@ -86,58 +73,26 @@ func (s *Server) createQuote(c *router.Context) {
 		return
 	}
 
-	arrival, departure, err := parseStay(req.Arrival, req.Departure)
+	arrival, _, err := parseStay(req.Arrival, req.Departure)
 	if err != nil {
 		writeProblem(c, router.BadRequest(err.Error()))
 		return
 	}
-
-	today := time.Now().Truncate(24 * time.Hour)
-	if arrival.Before(today.AddDate(0, 0, -1)) {
-		writeProblem(c, router.BadRequest("arrival is in the past"))
+	if err := validateStayWindow(req.Arrival, req.Departure); err != nil {
+		writeProblem(c, router.BadRequest(err.Error()))
 		return
 	}
-	if nights := int(departure.Sub(arrival).Hours() / 24); nights > maxStayNights {
-		writeProblem(c, router.BadRequest(fmt.Sprintf(
-			"a stay may be at most %d nights", maxStayNights)))
-		return
-	}
-
-	if req.Adults < 1 {
-		writeProblem(c, router.BadRequest("at least one adult is required"))
-		return
-	}
-	if req.Pets < 0 || req.Vehicles < 0 {
-		writeProblem(c, router.BadRequest(
-			"pets and vehicles cannot be negative"))
-		return
-	}
-	if req.Adults > maxParty || len(req.Children) > maxParty ||
-		req.Adults+len(req.Children) > maxParty {
-		writeProblem(c, router.BadRequest(fmt.Sprintf(
-			"a party may be at most %d guests", maxParty)))
-		return
-	}
-	if req.Pets > maxPets || req.Vehicles > maxVehicles {
-		writeProblem(c, router.BadRequest("too many pets or vehicles"))
+	if err := validateParty(
+		req.Adults, len(req.Children), req.Pets, req.Vehicles,
+	); err != nil {
+		writeProblem(c, router.BadRequest(err.Error()))
 		return
 	}
 
 	children := make([]pricing.Guest, 0, len(req.Children))
 	for _, ch := range req.Children {
-		dob, err := time.Parse(time.DateOnly, ch.DateOfBirth)
-		if err != nil {
-			writeProblem(c, router.BadRequest(
-				"every child needs a date of birth, YYYY-MM-DD"))
-			return
-		}
-		// A birth date after arrival, or implausibly long before it, is a typo.
-		// Accepting it silently reclassifies the guest as an adult and charges
-		// them accordingly.
-		oldest := arrival.AddDate(-oldestGuestYears, 0, 0)
-		if dob.After(arrival) || dob.Before(oldest) {
-			writeProblem(c, router.BadRequest(
-				"a child's date of birth must be before arrival and plausible"))
+		if err := validateChildBirthDate(ch.DateOfBirth, arrival); err != nil {
+			writeProblem(c, router.BadRequest(err.Error()))
 			return
 		}
 		children = append(children, pricing.Guest{DateOfBirth: ch.DateOfBirth})

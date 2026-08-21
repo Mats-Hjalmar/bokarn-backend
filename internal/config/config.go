@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -22,6 +23,8 @@ type Config struct {
 	Staff    KratosConfig
 	Outbox   OutboxConfig
 	Holds    HoldsConfig
+	SMTP     SMTPConfig
+	Guest    GuestConfig
 }
 
 // ServerConfig holds HTTP server settings.
@@ -124,6 +127,38 @@ type HoldsConfig struct {
 	SweepInterval time.Duration
 }
 
+// SMTPConfig is where guest mail goes.
+//
+// There is no username or password because local development sends to a
+// catcher that wants neither, and production sends through a relay whose
+// credentials are a secret-store reference rather than an environment
+// variable. Adding empty auth fields here would make an unauthenticated
+// production relay look configured.
+type SMTPConfig struct {
+	Host string
+	Port int
+	// From is the envelope sender. Per-operator sender addresses need domain
+	// verification at the relay, which is an onboarding step rather than a
+	// column, so one address sends for every operator and the operator's name
+	// carries the identity in the message itself.
+	From string
+}
+
+// GuestConfig is how the guest-facing site is addressed from the server side.
+type GuestConfig struct {
+	// SiteURLTemplate builds the public URL of one operator's site, with
+	// {slug} standing for the operator. A template rather than a base URL
+	// because operators live on their own hostnames, and a link in a
+	// confirmation email has to land on the campsite the guest booked — not on
+	// a shared host that would then have to guess.
+	SiteURLTemplate string
+}
+
+// SiteURL is the public address of one operator's guest site.
+func (c GuestConfig) SiteURL(slug string) string {
+	return strings.ReplaceAll(c.SiteURLTemplate, "{slug}", slug)
+}
+
 // Load reads configuration from the environment (and an optional .env file)
 // and returns the populated Config. A variable that is set but cannot be parsed
 // is an error, not a fall back to the default — a typo in BOKARN_DB_PORT must
@@ -223,6 +258,17 @@ func Load() (Config, error) {
 				"BOKARN_HOLDS_SWEEP_INTERVAL",
 				30*time.Second,
 			),
+		},
+		Guest: GuestConfig{
+			SiteURLTemplate: e.str(
+				"BOKARN_GUEST_SITE_URL_TEMPLATE",
+				"http://{slug}.bokarn.localhost",
+			),
+		},
+		SMTP: SMTPConfig{
+			Host: e.str("BOKARN_SMTP_HOST", "localhost"),
+			Port: e.int("BOKARN_SMTP_PORT", 1425),
+			From: e.str("BOKARN_SMTP_FROM", "bokningar@bokarn.local"),
 		},
 	}
 

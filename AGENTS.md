@@ -56,6 +56,29 @@ another. Never "fix" a permission error by pointing the API at the migrator DSN.
 - Split with a typename **prefix**, never a suffix: `store.go` +
   `store_admin.go`, `service.go` + `service_quote.go`.
 - Prefer flat packages. A sub-folder only when a sub-feature needs ~10+ files.
+- Background work is registered in `internal/worker`, which both `cmd/api` and
+  `cmd/job` build from. A job that ticks in one binary but is unreachable in the
+  other is a job nobody can test.
+
+## Occupancy and the freeze
+
+Two rules that most of `internal/booking` exists to keep:
+
+- **Never count inventory.** The `unit_allocation_no_overlap` exclusion
+  constraint is the only concurrency authority. Nothing asks whether a pitch is
+  free before writing: the assignment loop walks scored candidates inside
+  savepoints and lets `23P01` decide. Asking first is both a race and a second
+  implementation of the same rule.
+- **Never reprice a confirmed booking.** The breakdown is copied verbatim onto
+  `booking_price_line`, which is append-only. Confirming compares a recomputed
+  `pricing.InputHash` against the stored one and refuses a mismatch rather than
+  quoting again — a guest who saw one total is told it moved, not charged the new
+  one.
+
+Hold expiry is an explicit state write in two halves: opportunistically at the
+top of any path that needs to know what is free, and on a sweeper. The index
+predicate must be `IMMUTABLE`, so `now()` cannot appear in it, which means an
+expired hold occupies its unit until something writes the new state.
 
 ## Idioms
 
@@ -69,8 +92,11 @@ another. Never "fix" a permission error by pointing the API at the migrator DSN.
   `"insert booking: %w"`. Always `return rows.Err()` after a row loop.
 - Map Postgres errors to sentinels at the bottom of `store.go` with
   `errors.As(&pgErr)` against the `db` SQLSTATE constants.
-- `var logger = slog.With("subsystem", "<name>")` per package;
-  `InfoContext`/`ErrorContext` when a ctx is in scope; errors as `"err", err`.
+- `var logger = logging.New("<name>")` per package — **not** `slog.With`, which
+  captures whatever handler is default at variable-initialisation time and so
+  depends on whether the package happens to import `internal/otel`. See
+  `findings/logging-and-package-init.md`. Use `InfoContext`/`ErrorContext` when a
+  ctx is in scope; errors as `"err", err`.
 - Line width 80 (`golines -m 80`).
 
 ## Routes
